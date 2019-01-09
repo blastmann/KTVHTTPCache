@@ -19,11 +19,9 @@
         _URL = URL;
         _headers = headers;
         NSMutableDictionary * headersWithoutRangeAndLength = [headers mutableCopy];
-        for (NSString * key in [self withoutHeaderKeys])
-        {
-            [headersWithoutRangeAndLength removeObjectForKey:key];
-        }
-        _headersWithoutRangeAndLength = [headersWithoutRangeAndLength copy];
+        [headersWithoutRangeAndLength removeObjectsForKeys:[self withoutHeaderKeys]];
+        headersWithoutRangeAndLength = [self replaceContentEncodings:headersWithoutRangeAndLength];
+        _headersWithoutRangeAndLength = headersWithoutRangeAndLength;
         _contentType = [self headerValueWithKey:@"Content-Type"];
         _currentLength = [self headerValueWithKey:@"Content-Length"].longLongValue;
         _range = KTVHCRangeWithResponseHeaderValue([self headerValueWithKey:@"Content-Range"], &_totalLength);
@@ -58,6 +56,28 @@
                 @"content-range"];
     });
     return obj;
+}
+
+- (NSArray <NSString *> *)withoutContentEncoding
+{
+    static NSArray * ces = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        ces = @[@"Content-Encoding",
+                @"Content-encoding",
+                @"content-Encoding",
+                @"content-encoding"];
+    });
+    return ces;
+}
+
+- (NSMutableDictionary *)replaceContentEncodings:(NSMutableDictionary *)headers
+{
+    // Content-Encoding should replace with 'identity'
+    // because NSURLResponse data is decompressed.
+    [headers removeObjectsForKeys:[self withoutContentEncoding]];
+    headers[@"Content-Encoding"] = @"identity";
+    return headers;
 }
 
 - (KTVHCDataResponse *)responseWithRange:(KTVHCRange)range
